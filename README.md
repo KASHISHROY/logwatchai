@@ -8,7 +8,14 @@ cd ../backend-test && npm install
 
 ## Running the System
 
-Start in 3 separate terminals:
+From PowerShell on Windows, use `npm.cmd` if script execution policy blocks `npm.ps1`.
+
+To start everything from the repo root:
+```bash
+npm.cmd start
+```
+
+Or start in 4 separate terminals:
 
 **Terminal 1 - Proxy**
 ```bash
@@ -29,7 +36,7 @@ Runs on port 5001 (0% failure rate)
 cd backend-test
 npm start
 ```
-Runs on port 5002 (40% failure rate)
+Runs on port 5002 (40% simulated failure rate on `/api`). Manual failure demos also live under `/error/*`.
 
 **Terminal 4 - Dashboard**
 ```bash
@@ -114,7 +121,7 @@ Edit `proxy/config.json`:
 ## Modes
 
 **Stable** - All traffic to production backend (port 5001)
-**Test** - All traffic to test backend (port 5002, 40% failures)
+**Test** - All traffic to test backend (port 5002, 40% simulated failures)
 **Canary** - 90% to stable, 10% to test (configurable percentage)
 
 ## Auto-Rollback

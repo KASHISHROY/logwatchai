@@ -2,10 +2,13 @@
   "name": "rollback-proxy",
   "version": "1.0.0",
   "description": "Canary deployment proxy with auto-rollback",
-  "main": "server.js",
+  "main": "scripts/start-local.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node scripts/start-local.js",
+    "start:proxy": "npm --prefix proxy start",
+    "start:stable": "npm --prefix backend-stable start",
+    "start:test": "npm --prefix backend-test start",
+    "start:dashboard": "npm --prefix dashboard start"
   },
   "dependencies": {
     "@pinecone-database/pinecone": "^7.1.0",

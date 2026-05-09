@@ -16,7 +16,10 @@ const { getAIState } = require("./agents/ai-state");
 const { scanNetwork } = require("./network-scanner");
 
 const app = express();
-const proxy = httpProxy.createProxyServer({ changeOrigin: true });
+const proxy = httpProxy.createProxyServer({
+  changeOrigin: true,
+  selfHandleResponse: true,
+});
 
 // ================= INIT =================
 const logger = new EnhancedLogger();
@@ -485,12 +488,23 @@ proxy.on("proxyRes", (proxyRes, req, res) => {
   proxyRes.on("data", (chunk) => body.push(chunk));
 
   proxyRes.on("end", async () => {
+    const responseBuffer = Buffer.concat(body);
     let responseBody;
 
     try {
-      responseBody = JSON.parse(Buffer.concat(body).toString());
+      responseBody = JSON.parse(responseBuffer.toString());
     } catch {
-      responseBody = Buffer.concat(body).toString();
+      responseBody = responseBuffer.toString();
+    }
+
+    if (!res.headersSent) {
+      const headers = { ...proxyRes.headers };
+      delete headers["transfer-encoding"];
+      delete headers["content-length"];
+      delete headers.connection;
+
+      res.writeHead(status, headers);
+      res.end(responseBuffer);
     }
 
     const duration = Date.now() - (req.startTime || Date.now());
