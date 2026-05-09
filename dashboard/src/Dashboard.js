@@ -462,7 +462,7 @@ function NetworkMonitorPanel() {
           </div>
           {diagnosis.dependencyFindings && diagnosis.dependencyFindings.length > 0 && (
             <div style={styles.dependencyFindings}>
-              <div style={styles.analysisCardLabel}>NETWORK / DEPENDENCY ERRORS</div>
+              <div style={styles.analysisCardLabel}>NETWORK ERRORS</div>
               {diagnosis.dependencyFindings.map((finding, index) => (
                 <div key={finding.key || index} style={styles.dependencyItem}>
                   <div style={styles.dependencyTitle}>

@@ -172,7 +172,8 @@ function buildNetworkErrors(networkDiagnosis) {
 // ==============================
 function buildFallbackAI(errorRate, stats) {
   const networkErrors = buildNetworkErrors(stats?.networkDiagnosis);
-  const topErrors = [...networkErrors, ...buildTopErrors(stats?.logs || [])].slice(0, 3);
+  const codeErrors = buildTopErrors(stats?.logs || []);
+  const topErrors = codeErrors.length > 0 ? codeErrors : networkErrors.slice(0, 3);
 
   return {
     errors: topErrors.length > 0
@@ -257,7 +258,8 @@ async function runAnalysisAgent({ errorRate, stats, autoRollback }) {
   try {
     let relevantLogs = [];
     const networkErrors = buildNetworkErrors(stats?.networkDiagnosis);
-    const topErrors = [...networkErrors, ...buildTopErrors(stats?.logs || [])].slice(0, 3);
+    const codeErrors = buildTopErrors(stats?.logs || []);
+    const topErrors = codeErrors.length > 0 ? codeErrors : networkErrors.slice(0, 3);
 
     // ==============================
     // STEP 1: Try RAG
@@ -312,8 +314,8 @@ async function runAnalysisAgent({ errorRate, stats, autoRollback }) {
               {
                 role: "user",
                 content: `Analyze logs and return JSON only.
-Use the network diagnosis, live top errors, and RAG context to identify the top 3 relevant errors causing the issue.
-If a required service port is closed, show it as a network issue and do not describe it as a code bug.
+Use live top errors and RAG context to identify the top 3 backend/code errors causing the issue.
+Use network diagnosis only to detect closed ports or unreachable services. Do not classify database, Redis, deadlock, validation, memory, overload, or rate-limit responses as network issues.
 Use ROLLBACK only when error rate is greater than 25%.
 Return this shape:
 {
@@ -380,7 +382,7 @@ ${logSummary}`,
     }
 
     ai.topErrors = topErrors.length > 0 ? topErrors : ai.errors.slice(0, 3);
-    if (networkErrors.length > 0) {
+    if (networkErrors.length > 0 && codeErrors.length === 0) {
       ai.risk = "HIGH";
       ai.recommendation = "Fix the unreachable service shown in Network Monitor, then retry requests.";
       ai.actions = ["FIX_NETWORK"];

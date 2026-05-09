@@ -8,23 +8,105 @@ const app = express();
 
 app.use(express.json());
 
-// Random 40% failure rate
-const randomFail = () => Math.random() < 0.4;
+const apiFailures = [
+  {
+    status: 500,
+    error: "Internal Server Error",
+    message: "Database connection pool exhausted",
+    details: {
+      pool_size: 10,
+      active_connections: 10,
+      waiting: 5
+    }
+  },
+  {
+    status: 500,
+    error: "Internal Server Error",
+    message: "Redis cache connection failed",
+    details: {
+      service: "Redis Cache",
+      status: "DOWN",
+      fallback: "Direct Database"
+    }
+  },
+  {
+    status: 503,
+    error: "Service Unavailable",
+    message: "Service unavailable - backend overloaded",
+    details: {
+      queue_depth: 1200,
+      cpu: "96%",
+      retry_after: 30
+    }
+  },
+  {
+    status: 500,
+    error: "Internal Server Error",
+    message: "Deadlock detected - transaction rolled back",
+    details: {
+      error_type: "Deadlock",
+      retries: 3
+    }
+  },
+  {
+    status: 500,
+    error: "Internal Server Error",
+    message: "TypeError: Cannot read property 'email' of undefined",
+    details: {
+      file: "controllers/user.js",
+      line: 42,
+      function: "getUserEmail"
+    }
+  },
+  {
+    status: 400,
+    error: "Bad Request",
+    message: "Validation failed: password must be at least 8 characters",
+    details: {
+      field: "password",
+      rule: "minLength",
+      expected: 8,
+      received: 5
+    }
+  },
+  {
+    status: 500,
+    error: "Internal Server Error",
+    message: "Process out of memory - heap size exceeded 2GB limit",
+    details: {
+      heap_used: "2.1GB",
+      heap_total: "2GB"
+    }
+  },
+  {
+    status: 429,
+    error: "Too Many Requests",
+    message: "Rate limit exceeded - 1000 requests per minute limit reached",
+    details: {
+      limit: 1000,
+      window: "1 minute",
+      retry_after: 45
+    }
+  }
+];
+let apiRequestCount = 0;
+let apiFailureCount = 0;
 
 // ============================================
 // BASE API - 40% random failures
 // ============================================
 app.get("/api", (req, res) => {
-  if (randomFail()) {
-    return res.status(500).json({
-      error: "Internal Server Error",
-      message: "Database connection pool exhausted",
+  apiRequestCount += 1;
+
+  if (apiRequestCount % 3 === 0 || Math.random() < 0.2) {
+    const failure = apiFailures[apiFailureCount % apiFailures.length];
+    apiFailureCount += 1;
+
+    return res.status(failure.status).json({
+      error: failure.error,
+      message: failure.message,
       timestamp: new Date().toISOString(),
-      details: {
-        pool_size: 10,
-        active_connections: 10,
-        waiting: 5
-      }
+      details: failure.details
     });
   }
   res.json({ status: "ok", backend: "test", latency: Math.random() * 100 });
@@ -320,7 +402,7 @@ app.get("/health", (req, res) => {
 // ============================================
 // START SERVER
 // ============================================
-const PORT = 5002;
+const PORT = process.env.PORT || 5002;
 app.listen(PORT, () => {
   console.log(`\n🧪 TEST BACKEND running on http://127.0.0.1:${PORT}`);
   console.log("\n📊 REALISTIC ERROR ENDPOINTS:");

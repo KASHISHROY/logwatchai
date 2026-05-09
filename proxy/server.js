@@ -169,33 +169,21 @@ function classifyNetworkRelatedErrors(logs = []) {
         explanation: "The proxy received a gateway failure while forwarding traffic. This usually means the selected backend crashed, refused the connection, or closed the connection unexpectedly.",
         fix: "Check that the selected backend process is still running, confirm its port is open in Network Monitor, then restart the backend and retry through the proxy.",
       };
-    } else if (statusCode === 504 || lower.includes("timeout") || lower.includes("upstream")) {
+    } else if (
+      statusCode === 504 ||
+      lower.includes("network timeout") ||
+      lower.includes("connect timeout") ||
+      lower.includes("connection timed out") ||
+      lower.includes("upstream connection") ||
+      lower.includes("econnrefused") ||
+      lower.includes("enotfound") ||
+      lower.includes("socket hang up")
+    ) {
       finding = {
         key: "timeout",
-        title: "Backend dependency timeout",
-        explanation: "The backend is reachable, but something it depends on is too slow or not responding. This can be an upstream API, database call, or blocked request handler.",
-        fix: "Check the route returning the timeout in backend-test/server.js. Add a timeout limit and fallback response, and keep timeout simulation under /error/timeout instead of normal /api traffic.",
-      };
-    } else if (lower.includes("redis") || lower.includes("cache")) {
-      finding = {
-        key: "cache",
-        title: "Cache service connection failure",
-        explanation: "The backend is reachable, but its cache dependency is failing. In a real deployment this points to Redis being down, wrong host/port, or rejected credentials.",
-        fix: "Verify Redis host, port, and credentials from the backend environment. For this demo, keep Redis failures only under /error/cache and remove random cache failures from /api.",
-      };
-    } else if (lower.includes("database connection") || lower.includes("connection pool") || lower.includes("deadlock")) {
-      finding = {
-        key: "database",
-        title: "Database connectivity or transaction issue",
-        explanation: "The backend is reachable, but the database layer is failing. Pool exhaustion means connections are unavailable; deadlocks mean competing transactions are blocking each other.",
-        fix: "Check database connection limits, release connections after use, and retry deadlocked transactions safely. For this demo, keep DB failures under /error/db and remove random DB failures from /api.",
-      };
-    } else if (statusCode === 503 || lower.includes("overloaded") || lower.includes("unavailable")) {
-      finding = {
-        key: "service-overload",
-        title: "Backend reachable but overloaded",
-        explanation: "The service port is open, but the app is refusing requests because it is overloaded or intentionally simulating service unavailability.",
-        fix: "Check backend-test/server.js for random overload responses on /api. Move overload simulation to a manual /error route and keep normal /api traffic stable.",
+        title: "Network or upstream connection timeout",
+        explanation: "The request failed while connecting to or waiting on a network upstream. This is different from application code returning an error after handling the request.",
+        fix: "Check that the target host and port are reachable, then restart the unreachable service or fix the upstream network route.",
       };
     }
 
@@ -422,7 +410,7 @@ app.post("/api/network/diagnose", async (req, res) => {
     if (networkIssues.length > 0) {
       diagnosis = `Network issue: ${networkIssues.map((service) => `${service.name} port ${service.port}`).join(", ")} not reachable.`;
     } else if (dependencyFindings.length > 0) {
-      diagnosis = `All LogWatch ports are reachable, but ${dependencyFindings.length} network/dependency-related error type(s) were found in backend responses.`;
+      diagnosis = `All LogWatch ports are reachable, but ${dependencyFindings.length} network-related error type(s) were found in backend responses.`;
     } else if (appErrors.length > 0) {
       diagnosis = `Network ports are reachable. Current failures look application/backend related: ${appErrors.length} logged errors.`;
     } else {
