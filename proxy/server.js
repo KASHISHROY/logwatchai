@@ -89,6 +89,59 @@ const saveConfig = (config) => {
   fs.writeFileSync("./config.json", JSON.stringify(config, null, 2));
 };
 
+async function diagnoseLogWatchNetwork(target = "127.0.0.1") {
+  const scan = await scanNetwork({ target, profile: "logwatch" });
+  const openPorts = new Set(
+    (scan.hosts || []).flatMap((host) =>
+      (host.ports || [])
+        .filter((port) => port.state === "open")
+        .map((port) => String(port.port))
+    )
+  );
+  const expectedServices = [
+    {
+      name: "Dashboard",
+      port: "3000",
+      explanation: "The React dashboard should be reachable in the browser.",
+      fix: "Start the dashboard with npm start in the dashboard folder.",
+    },
+    {
+      name: "Proxy",
+      port: "4000",
+      explanation: "The proxy receives dashboard/API traffic and forwards requests.",
+      fix: "Start the proxy with npm start in the proxy folder.",
+    },
+    {
+      name: "Stable backend",
+      port: "5001",
+      explanation: "The stable backend is the safe fallback service.",
+      fix: "Start backend-stable with npm start.",
+    },
+    {
+      name: "Test backend",
+      port: "5002",
+      explanation: "The test backend receives canary/test traffic.",
+      fix: "Start backend-test with npm start, then retry test traffic.",
+    },
+  ];
+
+  const services = expectedServices.map((service) => ({
+    ...service,
+    status: openPorts.has(service.port) ? "open" : "closed",
+    issue: openPorts.has(service.port)
+      ? `${service.name} is reachable on port ${service.port}.`
+      : `${service.name} is down or blocked on port ${service.port}.`,
+  }));
+  const networkIssues = services.filter((service) => service.status !== "open");
+
+  return {
+    target,
+    services,
+    networkIssues,
+    scan,
+  };
+}
+
 // ================= ROUTES =================
 app.get("/health", (req, res) => {
   res.json({ status: "ok", uptime: process.uptime() });
@@ -158,18 +211,35 @@ app.post("/api/analyze", async (req, res) => {
   try {
     const stats = errorTracker.getStats();
     const errorRate = parseFloat(stats.errorRatePercent || 0);
+    let networkDiagnosis = null;
+
+    try {
+      const diagnosis = await diagnoseLogWatchNetwork("127.0.0.1");
+      networkDiagnosis = {
+        services: diagnosis.services,
+        networkIssues: diagnosis.networkIssues,
+      };
+    } catch (networkErr) {
+      networkDiagnosis = {
+        error: networkErr.message,
+        services: [],
+        networkIssues: [],
+      };
+    }
 
     const analysis = await runAnalysisAgent({
       errorRate,
       stats: {
         ...stats,
         logs: logger.getTodayLogs(),
+        networkDiagnosis,
       },
       autoRollback,
     });
     let patchResult = null;
 
-    const shouldPatch = (analysis.errors || []).some((error) => Number(error.code) >= 400);
+    const hasNetworkIssue = (analysis.errors || []).some((error) => error.isNetworkIssue);
+    const shouldPatch = !hasNetworkIssue && (analysis.errors || []).some((error) => Number(error.code) >= 400);
 
     if (shouldPatch) {
       try {
@@ -248,6 +318,46 @@ app.post("/api/network/scan", async (req, res) => {
     });
 
     res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(err.statusCode || 500).json({
+      success: false,
+      error: err.message,
+    });
+  }
+});
+
+app.post("/api/network/diagnose", async (req, res) => {
+  try {
+    const target = req.body?.target || "127.0.0.1";
+    const networkDiagnosis = await diagnoseLogWatchNetwork(target);
+    const stats = errorTracker.getStats();
+    const config = getConfig();
+    const logs = logger.getTodayLogs();
+    const services = networkDiagnosis.services;
+    const networkIssues = networkDiagnosis.networkIssues;
+    const appErrors = logs.filter((log) => Number(log.statusCode) >= 400);
+
+    let diagnosis;
+    if (networkIssues.length > 0) {
+      diagnosis = `Network issue: ${networkIssues.map((service) => `${service.name} port ${service.port}`).join(", ")} not reachable.`;
+    } else if (appErrors.length > 0) {
+      diagnosis = `Network ports are reachable. Current failures look application/backend related: ${appErrors.length} logged errors.`;
+    } else {
+      diagnosis = "Network ports are reachable and no current application errors are logged.";
+    }
+
+    res.json({
+      success: true,
+      data: {
+        target,
+        mode: config.mode,
+        errorRate: stats.errorRate,
+        totalErrors: stats.totalErrors,
+        services,
+        diagnosis,
+        scan: networkDiagnosis.scan,
+      },
+    });
   } catch (err) {
     res.status(err.statusCode || 500).json({
       success: false,

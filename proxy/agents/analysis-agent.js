@@ -8,6 +8,78 @@ function getErrorMessage(log) {
   return body?.message || body?.error || log?.message || "Unknown error";
 }
 
+function describeError(statusCode, message) {
+  const text = String(message || "").toLowerCase();
+
+  if (statusCode === 502) {
+    return {
+      explanation: "The proxy could not reach the selected backend or the backend connection failed. This usually means the backend process is down, the port is closed, or the upstream crashed while handling the request.",
+      fix: "Use Network Monitor to confirm the backend port is open. Restart the missing backend service, then retry requests through the proxy.",
+    };
+  }
+
+  if (statusCode === 504 || text.includes("timeout")) {
+    return {
+      explanation: "The test backend accepted traffic but did not respond fast enough. This points to a slow upstream operation, blocked event loop, or a simulated timeout path in the test service.",
+      fix: "Check the slow route in backend-test/server.js and remove the timeout behavior from normal /api traffic. Keep timeout simulation only under a manual /error/timeout route.",
+    };
+  }
+
+  if (text.includes("database connection pool")) {
+    return {
+      explanation: "The test backend is simulating database pool exhaustion. In a real service, this means requests are waiting for DB connections and the pool limit is too small or connections are not being released.",
+      fix: "Move this failure out of normal /api traffic in backend-test/server.js. Keep it only in /error/db, and make /api return a stable success response.",
+    };
+  }
+
+  if (text.includes("deadlock")) {
+    return {
+      explanation: "The test backend is simulating a database transaction deadlock. In production, two transactions would be blocking each other and one gets rolled back.",
+      fix: "Stop returning deadlock errors from normal /api traffic. Keep the deadlock scenario as a dedicated manual test route and make /api stable.",
+    };
+  }
+
+  if (text.includes("redis") || text.includes("cache")) {
+    return {
+      explanation: "The test backend is simulating a Redis/cache connection failure. In a real system, cache calls would fail and could slow or break request handling.",
+      fix: "Keep cache failure simulation under /error/cache only. Normal /api traffic should not randomly return Redis failures.",
+    };
+  }
+
+  if (statusCode === 503 || text.includes("overloaded") || text.includes("unavailable")) {
+    return {
+      explanation: "The test backend is reporting service overload or unavailability. This means the service is reachable, but it is refusing or failing requests at the application layer.",
+      fix: "Remove random overload responses from /api in backend-test/server.js. Keep overload simulation in a manual /error route.",
+    };
+  }
+
+  if (statusCode === 429 || text.includes("rate limit")) {
+    return {
+      explanation: "The test backend is simulating rate limiting. This means the service is intentionally rejecting too many requests.",
+      fix: "Do not randomly rate-limit normal /api traffic. Keep rate-limit testing under /error/rate-limit.",
+    };
+  }
+
+  if (statusCode === 400 || text.includes("validation")) {
+    return {
+      explanation: "The test backend is returning a validation error, which means the request is treated as invalid. In this demo, the invalid input is being simulated randomly.",
+      fix: "Remove random validation failures from /api. Keep validation failure testing under /error/validation so normal test traffic stays healthy.",
+    };
+  }
+
+  if (statusCode >= 500) {
+    return {
+      explanation: "The backend returned a server-side failure. The service was reachable, so this is more likely application behavior than a network outage.",
+      fix: "Inspect backend-test/server.js for the route producing this response and keep the failure behind a manual /error route.",
+    };
+  }
+
+  return {
+    explanation: "The backend returned an error response while handling normal traffic. The request reached the service, so this is likely application behavior.",
+    fix: "Inspect the matching route in backend-test/server.js and keep this failure out of normal /api traffic.",
+  };
+}
+
 function buildTopErrors(logs = []) {
   const errors = logs.filter((log) => Number(log.statusCode || log.status) >= 400);
   const grouped = new Map();
@@ -36,12 +108,12 @@ function buildTopErrors(logs = []) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 3)
     .map((error) => ({
+      ...describeError(Number(error.code), error.message),
       code: error.code,
       backend: [...error.backends].join(", ") || "unknown",
       frequency: error.count,
       paths: [...error.paths],
       cause: error.message,
-      fix: "Use RAG context and inspect backend-test/server.js for the matching failure path",
       severity: Number(error.code) >= 500 ? "HIGH" : "MEDIUM",
       samples: error.samples,
       fixedFile: null,
@@ -57,12 +129,12 @@ function buildTopErrors(logs = []) {
       const statusCode = Number(log.statusCode || log.status) || 500;
       const message = getErrorMessage(log);
       return {
+        ...describeError(statusCode, message),
         code: String(statusCode),
         backend: log.target?.includes("test") ? "test" : log.backend || "unknown",
         frequency: 1,
         paths: [log.path || "/api"],
         cause: message,
-        fix: "Inspect this recent failing request and compare with RAG context",
         severity: statusCode >= 500 ? "HIGH" : "MEDIUM",
         samples: [log],
         fixedFile: null,
@@ -78,11 +150,29 @@ function buildTopErrors(logs = []) {
   return [...topGrouped, ...recentSamples].slice(0, 3);
 }
 
+function buildNetworkErrors(networkDiagnosis) {
+  const issues = networkDiagnosis?.networkIssues || [];
+  return issues.slice(0, 3).map((service) => ({
+    code: "NETWORK",
+    backend: service.name,
+    frequency: 1,
+    paths: [`port ${service.port}`],
+    cause: service.issue || `${service.name} is not reachable.`,
+    explanation: service.explanation || "A required service port is closed, so requests cannot reach that service.",
+    fix: service.fix || `Start ${service.name} and confirm port ${service.port} is open.`,
+    severity: "HIGH",
+    samples: [],
+    fixedFile: null,
+    isNetworkIssue: true,
+  }));
+}
+
 // ==============================
 // FALLBACK AI DECISION (CRITICAL)
 // ==============================
 function buildFallbackAI(errorRate, stats) {
-  const topErrors = buildTopErrors(stats?.logs || []);
+  const networkErrors = buildNetworkErrors(stats?.networkDiagnosis);
+  const topErrors = [...networkErrors, ...buildTopErrors(stats?.logs || [])].slice(0, 3);
 
   return {
     errors: topErrors.length > 0
@@ -101,7 +191,9 @@ function buildFallbackAI(errorRate, stats) {
           },
         ],
     actions:
-      errorRate > 25
+      networkErrors.length > 0
+        ? ["FIX_NETWORK"]
+        : errorRate > 25
         ? ["ROLLBACK"]
         : errorRate > 5
         ? ["MONITOR"]
@@ -113,7 +205,9 @@ function buildFallbackAI(errorRate, stats) {
         ? "MEDIUM"
         : "LOW",
     recommendation:
-      errorRate > 25
+      networkErrors.length > 0
+        ? "Fix the unreachable service before changing code"
+        : errorRate > 25
         ? "Immediate rollback recommended"
         : "System stable",
   };
@@ -162,7 +256,8 @@ async function runAnalysisAgent({ errorRate, stats, autoRollback }) {
 
   try {
     let relevantLogs = [];
-    const topErrors = buildTopErrors(stats?.logs || []);
+    const networkErrors = buildNetworkErrors(stats?.networkDiagnosis);
+    const topErrors = [...networkErrors, ...buildTopErrors(stats?.logs || [])].slice(0, 3);
 
     // ==============================
     // STEP 1: Try RAG
@@ -217,7 +312,8 @@ async function runAnalysisAgent({ errorRate, stats, autoRollback }) {
               {
                 role: "user",
                 content: `Analyze logs and return JSON only.
-Use the live top errors and RAG context to identify the top 3 relevant errors causing the issue.
+Use the network diagnosis, live top errors, and RAG context to identify the top 3 relevant errors causing the issue.
+If a required service port is closed, show it as a network issue and do not describe it as a code bug.
 Use ROLLBACK only when error rate is greater than 25%.
 Return this shape:
 {
@@ -231,6 +327,9 @@ Error rate: ${errorRate}%
 
 Live top errors:
 ${topErrorSummary}
+
+Network diagnosis:
+${JSON.stringify(stats?.networkDiagnosis || {}, null, 2)}
 
 RAG context:
 ${logSummary}`,
@@ -273,12 +372,19 @@ ${logSummary}`,
       ai.errors = topErrors.length > 0 ? topErrors : buildFallbackAI(errorRate, stats).errors;
     } else if (topErrors.length > 0) {
       ai.errors = topErrors.map((topError, index) => ({
-        ...topError,
         ...(ai.errors[index] || {}),
+        ...topError,
+        explanation: topError.explanation || ai.errors[index]?.explanation,
+        fix: topError.fix || ai.errors[index]?.fix,
       }));
     }
 
     ai.topErrors = topErrors.length > 0 ? topErrors : ai.errors.slice(0, 3);
+    if (networkErrors.length > 0) {
+      ai.risk = "HIGH";
+      ai.recommendation = "Fix the unreachable service shown in Network Monitor, then retry requests.";
+      ai.actions = ["FIX_NETWORK"];
+    }
     ai.ragContext = relevantLogs.slice(0, 5);
 
     console.log("✅ FINAL AI:", ai);

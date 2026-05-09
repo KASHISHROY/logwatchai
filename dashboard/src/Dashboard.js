@@ -288,24 +288,27 @@ function AIAnalysisPanel({ stats }) {
           {topErrors.length > 0 && (
             <div style={styles.topErrorsWrap}>
               <div style={styles.analysisCardLabel}>TOP RELEVANT ERRORS</div>
-              <div style={styles.topErrorsGrid}>
+              <div style={styles.topErrorsList}>
                 {topErrors.map((err, index) => (
                   <div key={`${err.code}-${index}`} style={styles.topErrorCard}>
                     <div style={styles.topErrorHead}>
                       <span style={styles.topErrorRank}>0{index + 1}</span>
-                      <span style={{ color: Number(err.code) >= 500 ? '#ff3355' : '#ff9933' }}>HTTP {err.code || 'ERR'}</span>
+                      <span style={{ color: err.isNetworkIssue || Number(err.code) >= 500 ? '#ff3355' : '#ff9933' }}>
+                        {err.isNetworkIssue ? 'NETWORK' : `HTTP ${err.code || 'ERR'}`}
+                      </span>
                       <span style={styles.topErrorCount}>x{err.frequency || err.count || 1}</span>
                     </div>
                     <div style={styles.topErrorLine}>
                       <span style={styles.topErrorLabel}>Error:</span> {err.cause || err.message || 'Unknown error'}
                     </div>
                     <div style={styles.topErrorLine}>
-                      <span style={styles.topErrorLabel}>Frequency:</span> {err.frequency || err.count || 1}
-                      <span style={styles.topErrorDivider}>|</span>
                       <span style={styles.topErrorLabel}>Severity:</span> {err.severity || (Number(err.code) >= 500 ? 'HIGH' : 'MEDIUM')}
                     </div>
                     <div style={styles.topErrorLine}>
-                      <span style={styles.topErrorLabel}>Fix:</span> {err.fixedFile || analysisResult.patch?.file || 'No file patched yet'}
+                      <span style={styles.topErrorLabel}>Explanation:</span> {err.explanation || 'The service returned this error while handling test traffic.'}
+                    </div>
+                    <div style={styles.topErrorLine}>
+                      <span style={styles.topErrorLabel}>Fix:</span> {err.isNetworkIssue ? err.fix : (err.fixedFile || analysisResult.patch?.file || err.fix || 'No file patched yet')}
                     </div>
                     <div style={styles.topErrorMeta}>{(err.paths || []).join(', ') || '/api'} · {err.backend || 'unknown'}</div>
                   </div>
@@ -335,6 +338,7 @@ function NetworkMonitorPanel() {
   const [target, setTarget] = useState('127.0.0.1');
   const [profile, setProfile] = useState('quick');
   const [scanResult, setScanResult] = useState(null);
+  const [diagnosis, setDiagnosis] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState('');
 
@@ -342,6 +346,7 @@ function NetworkMonitorPanel() {
     setScanning(true);
     setError('');
     setScanResult(null);
+    setDiagnosis(null);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/network/scan`, {
@@ -356,6 +361,33 @@ function NetworkMonitorPanel() {
       }
 
       setScanResult(payload.data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const runDiagnosis = async () => {
+    setScanning(true);
+    setError('');
+    setScanResult(null);
+    setDiagnosis(null);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/network/diagnose`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok || payload.error) {
+        throw new Error(payload.error || `Diagnosis failed: ${response.status}`);
+      }
+
+      setDiagnosis(payload.data);
+      setScanResult(payload.data.scan);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -393,19 +425,43 @@ function NetworkMonitorPanel() {
             <option value="ping">Ping sweep</option>
             <option value="quick">Quick ports</option>
             <option value="service">Service check</option>
+            <option value="logwatch">LogWatch ports</option>
           </select>
         </div>
         <button onClick={runScan} disabled={scanning} style={scanning ? { ...styles.scanBtn, ...styles.scanBtnLoading } : styles.scanBtn}>
           {scanning ? <div style={styles.btnSpinner} /> : null}
           {scanning ? 'SCANNING...' : 'RUN NMAP SCAN'}
         </button>
+        <button onClick={runDiagnosis} disabled={scanning} style={scanning ? { ...styles.scanBtn, ...styles.scanBtnLoading } : { ...styles.scanBtn, ...styles.diagnoseBtn }}>
+          {scanning ? <div style={styles.btnSpinner} /> : null}
+          DIAGNOSE LOGWATCH
+        </button>
       </div>
 
       <div style={styles.networkHint}>
-        Scans run from the proxy server. Public targets are blocked unless NMAP_ALLOW_PUBLIC=true is set.
+        Diagnose LogWatch checks ports 3000, 4000, 5001, and 5002, then compares network reachability with current app errors.
       </div>
 
       {error && <div style={styles.analysisError}>{error}</div>}
+
+      {diagnosis && (
+        <div style={styles.diagnosisPanel}>
+          <div style={styles.diagnosisText}>{diagnosis.diagnosis}</div>
+          <div style={styles.serviceGrid}>
+            {diagnosis.services.map(service => (
+              <div key={service.port} style={styles.serviceItem}>
+                <div>
+                  <div>{service.name}</div>
+                  <div style={styles.serviceExplain}>{service.status === 'open' ? service.explanation : service.fix}</div>
+                </div>
+                <strong style={{ color: service.status === 'open' ? '#00dc9b' : '#ff3355', whiteSpace: 'nowrap' }}>
+                  {service.port}/{service.status.toUpperCase()}
+                </strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {scanResult && (
         <div style={styles.networkResults}>
@@ -761,14 +817,13 @@ const styles = {
   analysisCardLabel: { fontSize: 9, letterSpacing: 2, color: '#4a9888', fontFamily: "'Orbitron', monospace", marginBottom: 6 },
   analysisSummaryText: { fontSize: 13, color: '#a8d8cc', lineHeight: 1.7, fontFamily: "'Share Tech Mono', monospace", borderLeft: '2px solid #00dc9b33', paddingLeft: 12, marginTop: 6 },
   topErrorsWrap: { marginTop: 16 },
-  topErrorsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 8 },
+  topErrorsList: { display: 'flex', flexDirection: 'column', gap: 10, marginTop: 8 },
   topErrorCard: { padding: '12px 14px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(0,220,155,0.1)' },
   topErrorHead: { display: 'flex', alignItems: 'center', gap: 10, fontFamily: "'Orbitron', monospace", fontSize: 11, letterSpacing: 1, marginBottom: 8 },
   topErrorRank: { color: '#4a9888' },
   topErrorCount: { marginLeft: 'auto', color: '#00dc9b', fontFamily: 'monospace' },
   topErrorLine: { color: '#a8d8cc', fontSize: 12, lineHeight: 1.55, marginBottom: 5, overflowWrap: 'anywhere' },
   topErrorLabel: { color: '#00dc9b' },
-  topErrorDivider: { color: '#4a9888', padding: '0 8px' },
   topErrorMeta: { color: '#5a7888', fontSize: 10, fontFamily: 'monospace', overflowWrap: 'anywhere' },
   patchResult: { marginTop: 12, padding: '12px 16px', background: 'rgba(0,220,155,0.05)', border: '1px solid rgba(0,220,155,0.18)', color: '#00dc9b', fontSize: 12, fontFamily: 'monospace', overflowWrap: 'anywhere' },
   rawToggleBtn: { background: 'none', border: '1px solid rgba(0,220,155,0.15)', color: '#4a9888', cursor: 'pointer', fontFamily: 'monospace', fontSize: 11, padding: '6px 12px', letterSpacing: 1, transition: 'color 0.2s' },
@@ -779,8 +834,14 @@ const styles = {
   networkInput: { width: '100%', height: 44, background: 'rgba(0,0,0,0.24)', border: '1px solid rgba(0,220,155,0.16)', color: '#b8e8d8', padding: '0 12px', fontFamily: 'monospace', fontSize: 13, outline: 'none' },
   networkSelect: { width: '100%', height: 44, background: 'rgba(0,0,0,0.24)', border: '1px solid rgba(0,220,155,0.16)', color: '#b8e8d8', padding: '0 12px', fontFamily: 'monospace', fontSize: 13, outline: 'none' },
   scanBtn: { minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '0 20px', background: 'rgba(0,180,255,0.06)', border: '1px solid rgba(0,180,255,0.35)', color: '#00b4ff', cursor: 'pointer', fontFamily: "'Share Tech Mono', monospace", fontSize: 13, letterSpacing: 1, whiteSpace: 'nowrap' },
+  diagnoseBtn: { background: 'rgba(0,220,155,0.06)', border: '1px solid rgba(0,220,155,0.35)', color: '#00dc9b' },
   scanBtnLoading: { opacity: 0.7, cursor: 'not-allowed' },
   networkHint: { marginBottom: 14, fontSize: 11, color: '#5a7888', letterSpacing: 1, fontFamily: 'monospace' },
+  diagnosisPanel: { marginBottom: 14, padding: 16, background: 'rgba(0,220,155,0.04)', border: '1px solid rgba(0,220,155,0.14)' },
+  diagnosisText: { color: '#b8e8d8', fontSize: 13, lineHeight: 1.6, marginBottom: 12 },
+  serviceGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 },
+  serviceItem: { display: 'flex', justifyContent: 'space-between', gap: 12, padding: '9px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', fontSize: 12 },
+  serviceExplain: { color: '#5a7888', fontSize: 10, marginTop: 4, lineHeight: 1.4 },
   networkResults: { marginTop: 12, animation: 'slideIn 0.4s ease' },
   networkSummaryGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 14 },
   networkStatLabel: { fontSize: 10, color: '#4a9888', letterSpacing: 2 },

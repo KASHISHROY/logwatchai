@@ -13,6 +13,7 @@ const SCAN_PROFILES = {
   ping: ["-sn"],
   quick: ["-T3", "-F"],
   service: ["-sV", "--version-light", "-T3", "-F"],
+  logwatch: ["-T3", "-p", "3000,4000,5001,5002"],
 };
 
 const NMAP_CANDIDATES = [
