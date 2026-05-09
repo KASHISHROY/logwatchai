@@ -1,0 +1,538 @@
+/* ============================================================
+   LogAnalysis.css — dark cyberpunk theme matching Dashboard
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+.log-analysis-section {
+  background: transparent;
+  padding: 0;
+  margin: 0;
+}
+
+.la-header {
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 220, 155, 0.08);
+}
+
+.la-header h2 {
+  font-family: 'Orbitron', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: #9fd8cc;
+  margin: 0 0 4px 0;
+  letter-spacing: 2px;
+}
+
+.la-subtitle {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: #2a5a52;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+/* ── Tabs ── */
+.la-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.la-tab {
+  padding: 8px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.015);
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  color: #3a6a62;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.la-tab:hover {
+  border-color: rgba(0, 220, 155, 0.3);
+  color: #00dc9b;
+}
+
+.la-tab.active {
+  background: rgba(0, 220, 155, 0.08);
+  border-color: #00dc9b;
+  color: #00dc9b;
+  box-shadow: 0 0 16px rgba(0, 220, 155, 0.15);
+}
+
+/* ── Input Panel ── */
+.la-input-panel {
+  background: rgba(0, 5, 12, 0.4);
+  border: 1px solid rgba(0, 150, 120, 0.1);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.la-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.la-upload-btn {
+  padding: 8px 18px;
+  background: transparent;
+  border: 1px solid rgba(0, 180, 255, 0.4);
+  color: #00b4ff;
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.la-upload-btn:hover {
+  background: rgba(0, 180, 255, 0.08);
+  box-shadow: 0 0 16px rgba(0, 180, 255, 0.2);
+}
+
+.la-upload-hint {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: #1a4a50;
+  letter-spacing: 1px;
+}
+
+.la-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(0, 220, 155, 0.1);
+  padding: 12px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: #5a9a8a;
+  background: rgba(0, 0, 0, 0.4);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.la-textarea::placeholder {
+  color: #1a3a34;
+}
+
+.la-textarea:focus {
+  border-color: rgba(0, 220, 155, 0.35);
+  box-shadow: 0 0 12px rgba(0, 220, 155, 0.06);
+}
+
+.la-parse-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.la-parse-btn {
+  padding: 10px 24px;
+  background: rgba(0, 220, 155, 0.08);
+  color: #00dc9b;
+  border: 1px solid #00dc9b;
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.la-parse-btn:hover:not(:disabled) {
+  background: rgba(0, 220, 155, 0.15);
+  box-shadow: 0 0 20px rgba(0, 220, 155, 0.25);
+}
+
+.la-parse-btn:disabled {
+  border-color: rgba(255, 255, 255, 0.05);
+  color: #1a3a34;
+  cursor: not-allowed;
+}
+
+.la-parse-success {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: #00dc9b;
+  text-shadow: 0 0 8px rgba(0, 220, 155, 0.4);
+}
+
+.la-parse-error {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: #ff3355;
+}
+
+/* ── Stats Bar ── */
+.la-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.la-stat {
+  background: rgba(0, 8, 16, 0.5);
+  border: 1px solid rgba(0, 220, 155, 0.08);
+  padding: 16px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.la-stat::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 8px; height: 8px;
+  border-top: 1px solid #00dc9b;
+  border-left: 1px solid #00dc9b;
+}
+
+.la-stat-num {
+  display: block;
+  font-family: 'Orbitron', monospace;
+  font-size: 22px;
+  font-weight: 900;
+  color: #00dc9b;
+  text-shadow: 0 0 20px rgba(0, 220, 155, 0.5);
+  margin-bottom: 6px;
+  line-height: 1;
+}
+
+.la-stat-label {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  font-weight: 400;
+  color: #1a4a50;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* ── Body ── */
+.la-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Cards ── */
+.la-card {
+  background: rgba(0, 5, 12, 0.35);
+  border: 1px solid rgba(0, 150, 120, 0.08);
+  padding: 20px;
+}
+
+.la-card-title {
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9fd8cc;
+  margin: 0 0 16px 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 220, 155, 0.06);
+  letter-spacing: 2px;
+}
+
+.la-timeline-span-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  font-weight: 400;
+  color: #2a5a52;
+  letter-spacing: 1px;
+}
+
+/* ── Timeline ── */
+.la-timeline {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 110px;
+  padding: 8px 0;
+}
+
+.la-bucket {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.la-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 80px;
+}
+
+.la-bar {
+  width: 10px;
+  border-radius: 2px 2px 0 0;
+  min-height: 2px;
+  transition: height 0.3s ease;
+}
+
+.la-bar-total {
+  background: rgba(0, 180, 255, 0.3);
+  box-shadow: 0 0 4px rgba(0, 180, 255, 0.2);
+}
+
+.la-bar-error {
+  background: #ff3355;
+  box-shadow: 0 0 6px rgba(255, 51, 85, 0.4);
+}
+
+.la-bucket-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: #1a4a50;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.la-bucket-rate {
+  font-family: 'Orbitron', monospace;
+  font-size: 8px;
+  color: #ff3355;
+  font-weight: 700;
+  text-shadow: 0 0 6px rgba(255, 51, 85, 0.4);
+}
+
+.la-timeline-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: #2a5a52;
+}
+
+.la-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.la-dot-total { background: rgba(0, 180, 255, 0.5); }
+.la-dot-error { background: #ff3355; }
+
+/* ── Clusters ── */
+.la-clusters {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.la-cluster {
+  border-left: 3px solid;
+  padding: 14px 16px;
+  background: rgba(0, 0, 0, 0.3);
+  transition: background 0.2s;
+}
+
+.la-cluster:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.la-cluster-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.la-cluster-code {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.la-cluster-sev {
+  font-family: 'Orbitron', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: #000;
+  padding: 2px 8px;
+  letter-spacing: 1px;
+}
+
+.la-cluster-count {
+  margin-left: auto;
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #3a6a62;
+  background: rgba(0, 220, 155, 0.06);
+  border: 1px solid rgba(0, 220, 155, 0.1);
+  padding: 2px 10px;
+}
+
+.la-cluster-msg {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: #5a8a80;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.la-cluster-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: #1a4a40;
+}
+
+/* ── AI Card ── */
+.la-ai-card {
+  border: 1px solid rgba(167, 139, 250, 0.15);
+  background: rgba(30, 0, 50, 0.2);
+}
+
+.la-ai-card .la-card-title {
+  color: #a78bfa;
+  border-bottom-color: rgba(167, 139, 250, 0.1);
+}
+
+.la-ai-desc {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: #3a3060;
+  margin: 0 0 16px 0;
+  letter-spacing: 0.5px;
+  line-height: 1.6;
+}
+
+.la-ai-btn {
+  width: 100%;
+  padding: 14px;
+  background: rgba(124, 58, 237, 0.1);
+  color: #a78bfa;
+  border: 1px solid rgba(124, 58, 237, 0.5);
+  font-family: 'Orbitron', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 16px;
+}
+
+.la-ai-btn:hover:not(:disabled) {
+  background: rgba(124, 58, 237, 0.2);
+  box-shadow: 0 0 28px rgba(124, 58, 237, 0.3), inset 0 0 20px rgba(124, 58, 237, 0.05);
+  color: #c4b5fd;
+}
+
+.la-ai-btn:disabled {
+  border-color: rgba(255, 255, 255, 0.05);
+  color: #2a1a40;
+  cursor: not-allowed;
+}
+
+.la-ai-error {
+  background: rgba(255, 51, 85, 0.05);
+  color: #ff3355;
+  padding: 12px 16px;
+  border-left: 3px solid #ff3355;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.la-ai-result {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  overflow: hidden;
+}
+
+.la-ai-result-header {
+  background: rgba(124, 58, 237, 0.2);
+  color: #a78bfa;
+  font-family: 'Orbitron', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 8px 16px;
+  letter-spacing: 2px;
+  border-bottom: 1px solid rgba(167, 139, 250, 0.15);
+}
+
+.la-ai-text {
+  padding: 16px;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 12px;
+  color: #5a8a80;
+  line-height: 1.8;
+}
+
+.la-ai-text strong {
+  color: #a78bfa;
+  text-shadow: 0 0 8px rgba(167, 139, 250, 0.3);
+}
+
+.la-ai-placeholder {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px dashed rgba(167, 139, 250, 0.1);
+  padding: 24px;
+  text-align: center;
+  font-family: 'Share Tech Mono', monospace;
+  color: #2a1a40;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+/* ── Empty states ── */
+.la-empty {
+  text-align: center;
+  padding: 24px;
+  font-family: 'Share Tech Mono', monospace;
+  color: #1a4a40;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.la-empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  font-family: 'Share Tech Mono', monospace;
+  color: #1a4a40;
+  font-size: 13px;
+  background: rgba(0, 5, 12, 0.3);
+  border: 1px dashed rgba(0, 220, 155, 0.06);
+  letter-spacing: 1px;
+  line-height: 1.8;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .la-stats-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .la-tabs {
+    flex-direction: column;
+  }
+
+  .la-cluster-meta {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .la-timeline {
+    gap: 4px;
+  }
+}
