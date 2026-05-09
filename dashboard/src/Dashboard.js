@@ -460,6 +460,30 @@ function NetworkMonitorPanel() {
               </div>
             ))}
           </div>
+          {diagnosis.dependencyFindings && diagnosis.dependencyFindings.length > 0 && (
+            <div style={styles.dependencyFindings}>
+              <div style={styles.analysisCardLabel}>NETWORK / DEPENDENCY ERRORS</div>
+              {diagnosis.dependencyFindings.map((finding, index) => (
+                <div key={finding.key || index} style={styles.dependencyItem}>
+                  <div style={styles.dependencyTitle}>
+                    <span>{finding.title}</span>
+                    <strong>{finding.frequency} hits · {finding.severity}</strong>
+                  </div>
+                  <div style={styles.dependencyText}>
+                    <span style={styles.topErrorLabel}>Explanation:</span> {finding.explanation}
+                  </div>
+                  <div style={styles.dependencyText}>
+                    <span style={styles.topErrorLabel}>Fix:</span> {finding.fix}
+                  </div>
+                  {finding.examples?.length > 0 && (
+                    <div style={styles.topErrorMeta}>
+                      Example: HTTP {finding.examples[0].statusCode} · {finding.examples[0].message}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -842,6 +866,10 @@ const styles = {
   serviceGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 },
   serviceItem: { display: 'flex', justifyContent: 'space-between', gap: 12, padding: '9px 10px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', fontSize: 12 },
   serviceExplain: { color: '#5a7888', fontSize: 10, marginTop: 4, lineHeight: 1.4 },
+  dependencyFindings: { marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 },
+  dependencyItem: { padding: '12px 14px', background: 'rgba(255,153,51,0.045)', border: '1px solid rgba(255,153,51,0.16)' },
+  dependencyTitle: { display: 'flex', justifyContent: 'space-between', gap: 12, color: '#ffcc88', fontFamily: "'Orbitron', monospace", fontSize: 11, letterSpacing: 1, marginBottom: 8 },
+  dependencyText: { color: '#a8d8cc', fontSize: 12, lineHeight: 1.55, marginBottom: 6 },
   networkResults: { marginTop: 12, animation: 'slideIn 0.4s ease' },
   networkSummaryGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, marginBottom: 14 },
   networkStatLabel: { fontSize: 10, color: '#4a9888', letterSpacing: 2 },
