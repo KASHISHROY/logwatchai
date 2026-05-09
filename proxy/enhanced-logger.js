@@ -89,6 +89,19 @@ class EnhancedLogger {
     }
   }
 
+  clearTodayLogs() {
+    try {
+      const logFile = this.getLogFile();
+      if (fs.existsSync(logFile)) {
+        fs.writeFileSync(logFile, "", "utf8");
+      }
+      return true;
+    } catch (err) {
+      console.error("[CLEAR LOGS ERROR]", err.message);
+      return false;
+    }
+  }
+
   getLogsByFilter(filter) {
     const logs = this.getTodayLogs();
     return logs.filter(filter);

@@ -143,7 +143,8 @@ app.post("/api/rollback", (req, res) => {
 
 app.post("/api/reset-stats", (req, res) => {
   errorTracker.reset();
-  res.json({ success: true });
+  const logsCleared = logger.clearTodayLogs();
+  res.json({ success: true, logsCleared });
 });
 
 app.get("/api/ai/state", (req, res) => {
